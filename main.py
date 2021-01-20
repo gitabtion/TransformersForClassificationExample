@@ -1,10 +1,10 @@
 import torch
 import os
 from data import get_loader, preprocess
-from transformers import BertForSequenceClassification, BertConfig
+from transformers import BertForSequenceClassification, BertConfig, AutoTokenizer
 
 # 定义配置项
-model_name = 'prev_trained_model/bert-base-chinese'
+model_name = 'bert-base-chinese'
 raw_data = 'data.json'
 batch_size = 4
 lr = 1e-3
@@ -14,9 +14,10 @@ epochs = 10
 def train_entry():
     # 加载数据
     train_data, test_data = preprocess(raw_data)
-    train_loader = get_loader(train_data, batch_size=batch_size, shuffle=True)
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    train_loader = get_loader(train_data, tokenizer, batch_size=batch_size, shuffle=True)
     # 测试集无需打乱顺序
-    test_loader = get_loader(train_data, batch_size=8, shuffle=False)
+    test_loader = get_loader(train_data, tokenizer, batch_size=8, shuffle=False)
 
     # 加载模型及配置方法
     bert_config = BertConfig.from_pretrained(model_name, num_labels=15)  # 头条文本分类数据集为15类
@@ -27,7 +28,7 @@ def train_entry():
         train(model, optimizer, train_loader)
         # 评测时停止计算梯度
         with torch.no_grad():
-            test(model, train_loader)
+            test(model, test_loader)
 
 
 def train(model, optimizer, data_loader):
@@ -48,8 +49,8 @@ def test(model, test_loader):
     :param test_loader:
     :return:
     """
-    for *x, y in test_loader:
-        outputs = model(*x, labels=y)
+    for x, y in test_loader:
+        outputs = model(**x, labels=y, return_dict=False)
         print(outputs[0])
 
 
